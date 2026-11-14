@@ -1,11 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { subirFoto } from "../controllers/imagenesController.js";
-<<<<<<< HEAD
  
-=======
-
->>>>>>> 6326c845b05ad7531bfcc6e2b845d3dbf811b438
 const subida = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
@@ -15,11 +11,7 @@ const subida = multer({
     cb(new Error("Solo se aceptan imagenes JPG, PNG o WebP"));
   },
 });
-<<<<<<< HEAD
  
-=======
-
->>>>>>> 6326c845b05ad7531bfcc6e2b845d3dbf811b438
 const router = Router();
 router.post("/", subida.single("imagen"), subirFoto);
 export default router;
