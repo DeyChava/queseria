@@ -1,6 +1,5 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-<<<<<<< HEAD
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App'
@@ -25,13 +24,5 @@ createRoot(document.getElementById('root')).render(
         </CapabilitiesProvider>
       </ToastProvider>
     </BrowserRouter>
-=======
-import './index.css'
-import App from './App.jsx'
-
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <App />
->>>>>>> 6326c845b05ad7531bfcc6e2b845d3dbf811b438
   </StrictMode>,
 )

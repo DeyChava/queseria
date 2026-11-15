@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import Field from '../components/Field'
 import Icon from '../components/Icon'
+import Logo from '../components/Logo'
 import Modal from '../components/Modal'
 import { useAuth } from '../hooks/useAuth'
 import { useCapabilities } from '../hooks/useCapabilities'
@@ -42,10 +43,8 @@ export default function Login() {
       <div className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-oro-fuerte/10 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-oro-pastel/5 blur-3xl" />
       <div className="relative z-10 w-full max-w-md rounded-2xl border border-linea2 bg-card p-6 shadow-2xl sm:p-8">
-        <div className="mb-8 text-center">
-          <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full border border-oro/30 bg-campo text-oro"><Icon name="marca" size={32} /></div>
-          <h1 className="font-title text-4xl tracking-wider text-oro-pastel">La Quesería</h1>
-          <p className="mt-2 font-mono text-xs uppercase tracking-widest text-oro-pastel/60">Sabor · Calidad · Compromiso</p>
+        <div className="mb-8 flex justify-center">
+          <Logo size={176} />
         </div>
 
         {cargando ? (

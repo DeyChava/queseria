@@ -9,6 +9,7 @@ import { API_URL } from '../services/api'
 import { ROLES } from '../utils/constants'
 import Avatar from './Avatar'
 import Icon from './Icon'
+import Logo from './Logo'
 
 const MENU = [
   { ruta: '/catalogo', modulo: 'catalogo', texto: 'CATÁLOGO & BUSCADOR', icono: 'catalogo' },
@@ -36,7 +37,7 @@ export default function Navbar() {
     <aside className="no-imprimir flex w-full shrink-0 flex-col justify-between border-b border-linea bg-lateral md:sticky md:top-0 md:h-screen md:w-64 md:overflow-y-auto md:border-b-0 md:border-r">
       <div>
         <div className="flex items-center gap-3 border-b border-linea p-5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-oro/40 bg-oro/10 text-oro"><Icon name="marcaLinea" size={20} /></div>
+          <Logo size={44} className="!mx-0 shrink-0" />
           <div>
             <h2 className="font-title text-lg leading-none text-oro-pastel">LA QUESERÍA</h2>
             <span className="font-mono text-[10px] uppercase tracking-widest text-apagado">Sistema de Control</span>
