@@ -1,59 +1,41 @@
-
-import dotenv from "dotenv";
+// Crea (o repara) la cuenta de administrador con los datos de ADMIN_* del .env.
 import mongoose from "mongoose";
-import bcrypt from "bcryptjs";
-
+import { conectarDB } from "../config/db.js";
+import { config, exigirVariables } from "../config/env.js";
+import { ROL } from "../config/roles.js";
 import Usuario from "../models/Usuario.js";
-import { conectarDB } from "../db.js";
-
-dotenv.config();
+import { hashearPassword } from "../utils/passwords.js";
 
 async function crearAdministrador() {
   try {
-    const { ADMIN_NOMBRE, ADMIN_CORREO, ADMIN_PASSWORD } = process.env;
+    exigirVariables(["MONGO_URI", "ADMIN_NOMBRE", "ADMIN_CORREO", "ADMIN_PASSWORD"]);
+    const { nombre, correo, password } = config.admin;
 
-    if (!ADMIN_NOMBRE || !ADMIN_CORREO || !ADMIN_PASSWORD) {
-      throw new Error(
-        "Debes configurar ADMIN_NOMBRE, ADMIN_CORREO y ADMIN_PASSWORD en .env"
-      );
-    }
-
-    if (ADMIN_PASSWORD.length < 12) {
-      throw new Error(
-        "La contraseña del administrador debe tener al menos 12 caracteres"
-      );
+    if (password.length < 12) {
+      throw new Error("ADMIN_PASSWORD debe tener al menos 12 caracteres");
     }
 
     await conectarDB();
+    const correoNormalizado = correo.trim().toLowerCase();
+    const existente = await Usuario.findOne({ correo: correoNormalizado });
 
-    const correo = ADMIN_CORREO.trim().toLowerCase();
-
-    const existe = await Usuario.findOne({ correo });
-
-    if (existe) {
-      console.log("Ya existe un usuario con ese correo.");
+    if (existente) {
+      // No toca la contraseña: solo se asegura de que siga siendo administrador y esté activa
+      await Usuario.updateOne({ _id: existente._id }, { $set: { rol: ROL.ADMIN, activo: true } });
+      console.log("Ya existía esa cuenta: quedó como administrador y activa (no se cambió su contraseña).");
       return;
     }
 
-    const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
-
-    const administrador = await Usuario.create({
-      nombre: ADMIN_NOMBRE.trim(),
-      correo,
-      password: passwordHash,
-      rol: "administrador",
-      activo: true
+    const admin = await Usuario.create({
+      nombre: nombre.trim(),
+      correo: correoNormalizado,
+      password: await hashearPassword(password),
+      rol: ROL.ADMIN,
     });
-
-    console.log("Administrador creado correctamente.");
-    console.log("Nombre:", administrador.nombre);
-    console.log("Correo:", administrador.correo);
-    console.log("Rol:", administrador.rol);
-
+    console.log(`Administrador creado: ${admin.nombre} <${admin.correo}>`);
   } catch (error) {
     console.error("Error:", error.message);
     process.exitCode = 1;
-
   } finally {
     await mongoose.disconnect();
   }

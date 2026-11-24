@@ -1,164 +1,140 @@
-<<<<<<< HEAD
-import Producto from "../models/Producto.js";
-import { borrarImagen } from "../cloudinary.js";
 
-// GET /api/productos  ->  devuelve la lista
-export async function listarProductos(req, res) {
-  try {
-    const productos = await Producto.find({ activo: true }).sort({ nombre: 1 });
-    res.json(productos);
-  } catch (error) {
-    res.status(500).json({ error: "No se pudo traer la lista" });
+import { borrarImagen } from "../config/cloudinary.js";
+import MovimientoStock from "../models/MovimientoStock.js";
+import Producto from "../models/Producto.js";
+import { registrarMovimiento } from "../services/stockService.js";
+import { ErrorHttp } from "../utils/errores.js";
+import { leerNumero, redondear } from "../utils/numeros.js";
+import { seleccionar } from "../utils/validaciones.js";
+
+// Campos que el cliente puede mandar. El stock NO está: solo cambia con movimientos (POST /:id/stock).
+const CAMPOS_EDITABLES = [
+  "nombre", "descripcion", "codigo", "categoria", "proveedor", "unidad",
+  "precioCompra", "precioVenta", "stockMinimo", "fechaCompra", "diasVida", "imagen",
+];
+
+const escaparRegex = (texto) => texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+function validarDatos(datos, { parcial }) {
+  if (!parcial || datos.nombre !== undefined) {
+    if (typeof datos.nombre !== "string" || !datos.nombre.trim()) throw new ErrorHttp(400, "El nombre es obligatorio");
+  }
+  for (const campo of ["precioCompra", "precioVenta"]) {
+    if (parcial && datos[campo] === undefined) continue;
+    const valor = leerNumero(datos[campo]);
+    if (!Number.isFinite(valor) || valor < 0) {
+      throw new ErrorHttp(400, "El precio de compra y el de venta son obligatorios y deben ser 0 o más");
+    }
   }
 }
-// POST /api/productos  ->  guarda uno nuevo
-export async function crearProducto(req, res) {
-  try {
-    const { nombre, precioCompra, precioVenta } = req.body;
 
-    if (!nombre || precioCompra == null || precioVenta == null) {
-      return res.status(400).json({
-        error: "El nombre, el precio de compra y el precio de venta son obligatorios",
-      });
-    }
+async function exigirCodigoLibre(codigo, idActual) {
+  const limpio = String(codigo ?? "").trim().toUpperCase();
+  if (!limpio) return;
+  const filtro = { codigo: limpio, activo: true };
+  if (idActual) filtro._id = { $ne: idActual };
+  if (await Producto.exists(filtro)) throw new ErrorHttp(409, `Ya existe un producto activo con el código ${limpio}`);
+}
 
-    const producto = await Producto.create(req.body);
-=======
-import mongoose from "mongoose";
-import Producto from "../models/Producto.js";
-import { borrarImagen } from "../cloudinary.js";
+async function buscarProducto(id) {
+  const producto = await Producto.findOne({ _id: id, activo: true });
+  if (!producto) throw new ErrorHttp(404, "No existe ese producto");
+  return producto;
+}
 
-const escaparRegex = valor => valor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-// GET /api/productos?buscar=...&categoria=...&bajoStock=true&incluirInactivos=true
+// GET /api/productos?buscar=&categoria=&bajoStock=true|false
 export async function listarProductos(req, res) {
-  try {
-    const filtro = {};
-    if (req.query.incluirInactivos !== "true") filtro.activo = true;
-    if (req.query.buscar?.trim()) {
-      const termino = escaparRegex(req.query.buscar.trim());
-      filtro.$or = [
-        { nombre: { $regex: termino, $options: "i" } },
-        { codigo: { $regex: termino, $options: "i" } },
-        { descripcion: { $regex: termino, $options: "i" } },
-        { categoria: { $regex: termino, $options: "i" } },
-      ];
-    }
-    if (req.query.categoria?.trim()) filtro.categoria = { $regex: `^${escaparRegex(req.query.categoria.trim())}$`, $options: "i" };
-    if (req.query.bajoStock === "true") filtro.$expr = { $lte: ["$stock", "$stockMinimo"] };
-    if (req.query.bajoStock === "false") filtro.$expr = { $gt: ["$stock", "$stockMinimo"] };
+  const { buscar, categoria, bajoStock } = req.query;
+  const filtro = { activo: true };
 
-    const productos = await Producto.find(filtro).sort({ nombre: 1 });
-    res.json(productos);
-  } catch (error) {
-    res.status(500).json({ error: "No se pudo traer la lista de productos" });
+  if (buscar?.trim()) {
+    const regex = { $regex: escaparRegex(buscar.trim()), $options: "i" };
+    filtro.$or = [{ nombre: regex }, { codigo: regex }, { descripcion: regex }, { categoria: regex }];
   }
+  if (categoria?.trim()) {
+    filtro.categoria = { $regex: `^${escaparRegex(categoria.trim())}$`, $options: "i" };
+  }
+  if (bajoStock === "true") filtro.$expr = { $lte: ["$stock", "$stockMinimo"] };
+  if (bajoStock === "false") filtro.$expr = { $gt: ["$stock", "$stockMinimo"] };
+
+  res.json(await Producto.find(filtro).sort({ nombre: 1 }));
 }
 
 // GET /api/productos/:id
 export async function obtenerProducto(req, res) {
-  try {
-    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Identificador de producto inválido" });
-    const producto = await Producto.findById(req.params.id);
-    if (!producto) return res.status(404).json({ error: "No se encontró el producto" });
-    res.json(producto);
-  } catch (error) {
-    res.status(500).json({ error: "No se pudo consultar el producto" });
-  }
+  res.json(await buscarProducto(req.params.id));
 }
 
 // POST /api/productos
 export async function crearProducto(req, res) {
-  try {
-    const { nombre, precioCompra, precioVenta, codigo } = req.body;
-    if (!nombre?.trim() || precioCompra == null || precioVenta == null) {
-      return res.status(400).json({ error: "El nombre, el precio de compra y el precio de venta son obligatorios" });
-    }
-    if (![precioCompra, precioVenta].every(v => Number.isFinite(Number(v)) && Number(v) >= 0)) {
-      return res.status(400).json({ error: "Los precios deben ser números iguales o mayores que cero" });
-    }
-    if (codigo?.trim()) {
-      const existente = await Producto.findOne({ codigo: codigo.trim(), activo: true });
-      if (existente) return res.status(409).json({ error: "Ya existe un producto activo con ese código" });
-    }
-    const producto = await Producto.create({ ...req.body, nombre: nombre.trim() });
->>>>>>> 6326c845b05ad7531bfcc6e2b845d3dbf811b438
-    res.status(201).json(producto);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
+  const datos = seleccionar(req.body, CAMPOS_EDITABLES);
+  validarDatos(datos, { parcial: false });
+  await exigirCodigoLibre(datos.codigo);
+
+  const producto = await Producto.create({
+    ...datos,
+    stock: 0,   // el stock inicial se registra como una entrada (POST /:id/stock) para que quede en el historial
+    creadoPor: req.usuario.nombre,
+    actualizadoPor: req.usuario.nombre,
+  });
+  res.status(201).json(producto);
 }
-<<<<<<< HEAD
-// PUT /api/productos/:id  ->  cambia los datos de uno
-export async function editarProducto(req, res) {
-  try {
-    const anterior = await Producto.findById(req.params.id);
-    if (!anterior) {
-      return res.status(404).json({ error: "No existe ese queso" });
-    }
-
-    // Si mandaron una foto distinta, la vieja ya no le sirve a nadie
-    if (req.body.imagen && anterior.imagen && req.body.imagen !== anterior.imagen) {
-      await borrarImagen(anterior.imagen);
-    }
-
-    const producto = await Producto.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
-
-=======
 
 // PUT /api/productos/:id
 export async function editarProducto(req, res) {
-  try {
-    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Identificador de producto inválido" });
-    const anterior = await Producto.findById(req.params.id);
-    if (!anterior) return res.status(404).json({ error: "No existe ese producto" });
+  const producto = await buscarProducto(req.params.id);
+  const datos = seleccionar(req.body, CAMPOS_EDITABLES);
+  validarDatos(datos, { parcial: true });
+  if (datos.codigo !== undefined) await exigirCodigoLibre(datos.codigo, producto._id);
 
-    if (req.body.codigo?.trim()) {
-      const duplicado = await Producto.findOne({ codigo: req.body.codigo.trim(), _id: { $ne: anterior._id }, activo: true });
-      if (duplicado) return res.status(409).json({ error: "Otro producto activo ya utiliza ese código" });
-    }
-    const producto = await Producto.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-    if (req.body.imagen && anterior.imagen && req.body.imagen !== anterior.imagen) await borrarImagen(anterior.imagen);
->>>>>>> 6326c845b05ad7531bfcc6e2b845d3dbf811b438
-    res.json(producto);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
+  const imagenAnterior = producto.imagen;
+  producto.set({ ...datos, actualizadoPor: req.usuario.nombre });
+  await producto.save();
+
+  if (datos.imagen && imagenAnterior && datos.imagen !== imagenAnterior) await borrarImagen(imagenAnterior);
+  res.json(producto);
 }
 
-<<<<<<< HEAD
-// DELETE /api/productos/:id  ->  lo borra de verdad, y borra su foto
+// DELETE /api/productos/:id
+// No se borra de verdad: se desactiva, para que las ventas y los reportes antiguos sigan funcionando.
 export async function eliminarProducto(req, res) {
-  try {
-    const producto = await Producto.findById(req.params.id);
-    if (!producto) {
-      return res.status(404).json({ error: "No existe ese queso" });
-    }
+  const producto = await buscarProducto(req.params.id);
+  const imagen = producto.imagen;
 
-    // Se borra el producto PRIMERO y la imagen despues. Al reves, si el
-    // borrado fallara, el queso seguiria en el catalogo pero ya sin foto.
-    const imagenABorrar = producto.imagen;
-    await Producto.findByIdAndDelete(req.params.id);
+  producto.activo = false;
+  producto.imagen = "";
+  producto.actualizadoPor = req.usuario.nombre;
+  await producto.save();
 
-    if (imagenABorrar) await borrarImagen(imagenABorrar);
+  await borrarImagen(imagen);
+  res.json({ mensaje: "Producto eliminado correctamente", id: producto._id });
+}
 
-    res.json({ mensaje: "Queso e imagen eliminados", id: req.params.id });
-=======
-// DELETE /api/productos/:id: desactiva el producto para conservar el historial de ventas.
-export async function eliminarProducto(req, res) {
-  try {
-    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Identificador de producto inválido" });
-    const producto = await Producto.findById(req.params.id);
-    if (!producto) return res.status(404).json({ error: "No existe ese producto" });
-    producto.activo = false;
-    await producto.save();
-    res.json({ mensaje: "Producto desactivado correctamente", id: req.params.id });
->>>>>>> 6326c845b05ad7531bfcc6e2b845d3dbf811b438
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+// POST /api/productos/:id/stock { delta, nota?, tipo? }
+//  delta > 0 suma (entrada) · delta < 0 resta (salida). tipo "ajuste" se usa para correcciones de conteo.
+export async function ajustarStock(req, res) {
+  const delta = redondear(leerNumero(req.body.delta), 3);
+  if (!Number.isFinite(delta) || delta === 0) {
+    throw new ErrorHttp(400, "La cantidad debe ser un número distinto de cero");
   }
+
+  const tipo = req.body.tipo ?? (delta > 0 ? "entrada" : "salida");
+  if (!["entrada", "salida", "ajuste"].includes(tipo)) throw new ErrorHttp(400, "El tipo de movimiento no es válido");
+  if (tipo === "entrada" && delta < 0) throw new ErrorHttp(400, "Una entrada debe sumar existencias");
+  if (tipo === "salida" && delta > 0) throw new ErrorHttp(400, "Una salida debe restar existencias");
+
+  const producto = await registrarMovimiento({
+    productoId: req.params.id,
+    delta,
+    tipo,
+    nota: String(req.body.nota ?? "").trim().slice(0, 200),
+    usuario: req.usuario,
+  });
+  res.json(producto);
+}
+
+// GET /api/productos/:id/movimientos?limite=50  (más recientes primero)
+export async function listarMovimientos(req, res) {
+  const limite = Math.min(Math.max(Number(req.query.limite) || 50, 1), 200);
+  res.json(await MovimientoStock.find({ producto: req.params.id }).sort({ createdAt: -1 }).limit(limite));
 }

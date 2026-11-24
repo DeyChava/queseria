@@ -1,97 +1,26 @@
-
 import { Router } from "express";
-import multer from "multer";
-
 import {
-  listarUsuarios,
-  actualizarPerfil,
-  cambiarPassword,
-  eliminarMiCuenta,
-  cambiarRol,
-  restablecerPassword,
-  eliminarUsuario
+  actualizarPerfil, cambiarPassword, cambiarRol, eliminarMiCuenta,
+  eliminarUsuario, listarUsuarios, restablecerPassword,
 } from "../controllers/usuariosController.js";
-
-import {
-  verificarToken,
-  verificarRol
-} from "../middlewares/authMiddleware.js";
-
-// Configuración para subir fotografías
-const subida = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 5 * 1024 * 1024
-  },
-  fileFilter: (req, file, cb) => {
-    const permitidos = [
-      "image/jpeg",
-      "image/png",
-      "image/webp"
-    ];
-
-    if (permitidos.includes(file.mimetype)) {
-      return cb(null, true);
-    }
-
-    cb(new Error("Solo se aceptan imágenes JPG, PNG o WebP"));
-  }
-});
+import { ROL } from "../config/roles.js";
+import { verificarRol, verificarToken } from "../middlewares/auth.js";
+import { validarId } from "../middlewares/validarId.js";
 
 const router = Router();
+const soloAdmin = verificarRol(ROL.ADMIN);
 
-// Consultar todos los usuarios: solo administrador
-router.get(
-  "/",
-  verificarToken,
-  verificarRol("administrador"),
-  listarUsuarios
-);
+router.use(verificarToken);
 
-// Editar perfil propio
-router.patch(
-  "/yo",
-  verificarToken,
-  subida.single("fotoPerfil"),
-  actualizarPerfil
-);
+// Cada persona sobre su propia cuenta (van antes de las rutas con :id)
+router.patch("/yo", actualizarPerfil);
+router.post("/yo/password", cambiarPassword);
+router.delete("/yo", eliminarMiCuenta);
 
-// Cambiar contraseña propia
-router.post(
-  "/yo/password",
-  verificarToken,
-  cambiarPassword
-);
-
-// Eliminar cuenta propia
-router.delete(
-  "/yo",
-  verificarToken,
-  eliminarMiCuenta
-);
-
-// Cambiar rol de otro usuario: solo administrador
-router.patch(
-  "/:id/rol",
-  verificarToken,
-  verificarRol("administrador"),
-  cambiarRol
-);
-
-// Restablecer contraseña de otro usuario: solo administrador
-router.post(
-  "/:id/restablecer-password",
-  verificarToken,
-  verificarRol("administrador"),
-  restablecerPassword
-);
-
-// Eliminar otro usuario: solo administrador
-router.delete(
-  "/:id",
-  verificarToken,
-  verificarRol("administrador"),
-  eliminarUsuario
-);
+// Administración de cuentas: solo administrador
+router.get("/", soloAdmin, listarUsuarios);
+router.patch("/:id/rol", soloAdmin, validarId, cambiarRol);
+router.post("/:id/restablecer-password", soloAdmin, validarId, restablecerPassword);
+router.delete("/:id", soloAdmin, validarId, eliminarUsuario);
 
 export default router;

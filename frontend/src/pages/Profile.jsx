@@ -42,7 +42,7 @@ export default function Profile() {
   }
 
   return (
-    <section className="max-w-3xl space-y-6">
+    <section className="mx-auto max-w-3xl space-y-6">
       <h1 className="font-title text-2xl font-bold text-titulo">Mi Perfil</h1>
 
       <div className="tarjeta flex flex-col items-center gap-6 p-6 sm:flex-row sm:items-start sm:p-8">

@@ -72,8 +72,8 @@ export default function Login() {
               <Field id="auth-rol" big label="Rol de Acceso">
                 <select id="auth-rol" className="campo campo-grande" value={rolElegido} onChange={cambiar('rol')} disabled={primeraCuenta}>{Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
               </Field>
-              {registro && f.rol !== 'empleado' && hayUsuarios && (
-                <Field id="auth-codigo" big label="Código de Autorización" value={f.codigoRol} onChange={cambiar('codigoRol')} autoComplete="off" placeholder="Lo entrega la quesería" hint="Los roles Administrador y Jefe de inventario requieren este código." />
+              {registro && hayUsuarios && (
+                <Field id="auth-codigo" big label="Código de Autorización" value={f.codigoRol} onChange={cambiar('codigoRol')} required autoComplete="off" placeholder="Lo entrega la quesería" hint="Cada rol tiene su propio código. Pídeselo al administrador." />
               )}
               <Field id="auth-password" big label="Contraseña" type="password" value={f.password} onChange={cambiar('password')} required minLength={8} autoComplete={registro ? 'new-password' : 'current-password'} placeholder="Mínimo 8 caracteres" />
               {registro && <Field id="auth-confirmar" big label="Confirmar Contraseña" type="password" value={f.confirmar} onChange={cambiar('confirmar')} required autoComplete="new-password" placeholder="Repite la contraseña" />}

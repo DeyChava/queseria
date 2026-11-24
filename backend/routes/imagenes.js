@@ -1,17 +1,11 @@
 import { Router } from "express";
-import multer from "multer";
 import { subirFoto } from "../controllers/imagenesController.js";
- 
-const subida = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
-  fileFilter: (req, file, cb) => {
-    const permitidos = ["image/jpeg", "image/png", "image/webp"];
-    if (permitidos.includes(file.mimetype)) return cb(null, true);
-    cb(new Error("Solo se aceptan imagenes JPG, PNG o WebP"));
-  },
-});
- 
+import { verificarToken } from "../middlewares/auth.js";
+import { recibirImagen } from "../middlewares/subida.js";
+
 const router = Router();
-router.post("/", subida.single("imagen"), subirFoto);
+
+// Cualquier usuario con sesión: sirve para fotos de productos (admin) y de perfil
+router.post("/", verificarToken, recibirImagen, subirFoto);
+
 export default router;

@@ -1,15 +1,14 @@
-import { subirImagen } from "../cloudinary.js";
+import { subirImagen } from "../config/cloudinary.js";
+import { ErrorHttp } from "../utils/errores.js";
 
-// POST /api/imagenes -> sube una foto y devuelve su nombre
+// POST /api/imagenes (campo "imagen") -> { imagen: "nombre corto en Cloudinary" }
 export async function subirFoto(req, res) {
+  if (!req.file) throw new ErrorHttp(400, "No llegó ninguna imagen");
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: "No llego ninguna imagen" });
-    }
-    const imagen = await subirImagen(req.file);
-    res.status(201).json({ imagen });
+    res.status(201).json({ imagen: await subirImagen(req.file) });
   } catch (error) {
     console.error("Cloudinary:", error.message);
-    res.status(500).json({ error: "No se pudo subir la imagen" });
+    throw new ErrorHttp(502, "No se pudo subir la imagen. Revisa las claves de Cloudinary en el .env");
   }
 }
+

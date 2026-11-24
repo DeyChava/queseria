@@ -1,299 +1,121 @@
+import { borrarImagen } from "../config/cloudinary.js";
+import { ROL, ROLES } from "../config/roles.js";
+import Producto from "../models/Producto.js";
+import Usuario from "../models/Usuario.js";
+import { ErrorHttp } from "../utils/errores.js";
+import {
+  compararPassword, generarPasswordTemporal, hashearPassword,
+} from "../utils/passwords.js";
+import { usuarioPublico } from "../utils/serializadores.js";
+import { limpiarNombre, validarNombreImagen, validarPassword } from "../utils/validaciones.js";
 
-import Usuario, { ROLES } from "../models/Usuario.js";
-import bcrypt from "bcryptjs";
-import crypto from "crypto";
-import { subirImagen, borrarImagen } from "../cloudinary.js";
+async function buscarUsuario(id, conPassword = false) {
+  const consulta = Usuario.findById(id);
+  const usuario = await (conPassword ? consulta.select("+password") : consulta);
+  if (!usuario) throw new ErrorHttp(404, "Usuario no encontrado");
+  return usuario;
+}
 
-// Consultar lista de usuarios
-export const listarUsuarios = async (req, res) => {
-  try {
-    const usuarios = await Usuario.find()
-      .select("-password")
-      .sort({ createdAt: -1 });
+// Una foto solo se borra de Cloudinary si nadie más la está usando
+async function borrarFotoSiNadieLaUsa(imagen, excluirUsuarioId) {
+  if (!imagen) return;
+  const [otroUsuario, producto] = await Promise.all([
+    Usuario.exists({ fotoPerfil: imagen, _id: { $ne: excluirUsuarioId } }),
+    Producto.exists({ imagen }),
+  ]);
+  if (!otroUsuario && !producto) await borrarImagen(imagen);
+}
 
-    return res.status(200).json({ usuarios });
+// El sistema nunca debe quedarse sin administradores
+async function exigirOtroAdministrador(usuario) {
+  if (usuario.rol !== ROL.ADMIN) return;
+  const admins = await Usuario.countDocuments({ rol: ROL.ADMIN, _id: { $ne: usuario._id } });
+  if (admins === 0) throw new ErrorHttp(409, "No se puede eliminar al único administrador del sistema");
+}
 
-  } catch (error) {
-    console.error("Error al listar usuarios:", error);
-    return res.status(500).json({
-      mensaje: "Error al consultar los usuarios"
-    });
+// GET /api/usuarios
+export async function listarUsuarios(req, res) {
+  const usuarios = await Usuario.find().sort({ createdAt: -1 });
+  res.json(usuarios.map(usuarioPublico));
+}
+
+// PATCH /api/usuarios/yo { nombre?, foto? }   (foto = nombre corto de POST /api/imagenes, o "" para quitarla)
+export async function actualizarPerfil(req, res) {
+  const usuario = await buscarUsuario(req.usuario.id);
+  const { nombre, foto } = req.body;
+  const fotoAnterior = usuario.fotoPerfil;
+
+  if (nombre !== undefined) usuario.nombre = limpiarNombre(nombre);
+  if (foto !== undefined) usuario.fotoPerfil = validarNombreImagen(foto);
+  await usuario.save();
+
+  if (usuario.fotoPerfil !== fotoAnterior) await borrarFotoSiNadieLaUsa(fotoAnterior, usuario._id);
+  res.json({ usuario: usuarioPublico(usuario) });
+}
+
+// POST /api/usuarios/yo/password { actual, nueva }
+// Una contraseña actual incorrecta responde 400 (no 401): un 401 haría cerrar la sesión en el frontend.
+export async function cambiarPassword(req, res) {
+  const nueva = validarPassword(req.body.nueva, "La nueva contraseña");
+  const usuario = await buscarUsuario(req.usuario.id, true);
+
+  if (typeof req.body.actual !== "string" || !(await compararPassword(req.body.actual, usuario.password))) {
+    throw new ErrorHttp(400, "La contraseña actual es incorrecta");
   }
-};
+  usuario.password = await hashearPassword(nueva);
+  await usuario.save();
+  res.json({ mensaje: "Contraseña actualizada correctamente" });
+}
 
-// Editar nombre y fotografía del perfil propio
-export const actualizarPerfil = async (req, res) => {
-  try {
-    const { nombre } = req.body;
+// DELETE /api/usuarios/yo { password }
+export async function eliminarMiCuenta(req, res) {
+  const usuario = await buscarUsuario(req.usuario.id, true);
 
-    if (nombre !== undefined && !nombre.trim()) {
-      return res.status(400).json({
-        mensaje: "El nombre no puede estar vacío"
-      });
-    }
-
-    const usuario = await Usuario.findById(req.usuario.id);
-
-    if (!usuario) {
-      return res.status(404).json({
-        mensaje: "Usuario no encontrado"
-      });
-    }
-
-    if (nombre !== undefined) {
-      usuario.nombre = nombre.trim();
-    }
-
-    if (req.file) {
-      const fotoAnterior = usuario.fotoPerfil;
-      const nuevaFoto = await subirImagen(req.file);
-
-      usuario.fotoPerfil = nuevaFoto;
-
-      if (fotoAnterior) {
-        await borrarImagen(fotoAnterior);
-      }
-    }
-
-    await usuario.save();
-
-    return res.status(200).json({
-      mensaje: "Perfil actualizado correctamente",
-      usuario: {
-        id: usuario._id,
-        nombre: usuario.nombre,
-        correo: usuario.correo,
-        rol: usuario.rol,
-        fotoPerfil: usuario.fotoPerfil
-      }
-    });
-
-  } catch (error) {
-    console.error("Error al actualizar perfil:", error);
-    return res.status(500).json({
-      mensaje: "Error al actualizar el perfil"
-    });
+  if (typeof req.body?.password !== "string" || !(await compararPassword(req.body.password, usuario.password))) {
+    throw new ErrorHttp(400, "La contraseña es incorrecta");
   }
-};
+  await exigirOtroAdministrador(usuario);
 
-// Cambiar contraseña propia
-export const cambiarPassword = async (req, res) => {
-  try {
-    const { passwordActual, passwordNueva } = req.body;
+  await usuario.deleteOne();
+  await borrarFotoSiNadieLaUsa(usuario.fotoPerfil, usuario._id);
+  res.json({ mensaje: "Tu cuenta fue eliminada correctamente" });
+}
 
-    if (!passwordActual || !passwordNueva) {
-      return res.status(400).json({
-        mensaje: "Debes ingresar la contraseña actual y la nueva"
-      });
-    }
+// PATCH /api/usuarios/:id/rol { rol }
+export async function cambiarRol(req, res) {
+  const { rol } = req.body;
+  if (!ROLES.includes(rol)) throw new ErrorHttp(400, "El rol indicado no es válido");
+  if (req.params.id === req.usuario.id) throw new ErrorHttp(400, "No puedes cambiar tu propio rol");
 
-    if (passwordNueva.length < 8) {
-      return res.status(400).json({
-        mensaje: "La nueva contraseña debe tener al menos 8 caracteres"
-      });
-    }
+  const usuario = await buscarUsuario(req.params.id);
+  usuario.rol = rol;
+  await usuario.save();
+  res.json({ usuario: usuarioPublico(usuario) });
+}
 
-    const usuario = await Usuario.findById(req.usuario.id)
-      .select("+password");
-
-    if (!usuario) {
-      return res.status(404).json({
-        mensaje: "Usuario no encontrado"
-      });
-    }
-
-    const passwordCorrecta = await bcrypt.compare(
-      passwordActual,
-      usuario.password
-    );
-
-    if (!passwordCorrecta) {
-      return res.status(401).json({
-        mensaje: "La contraseña actual es incorrecta"
-      });
-    }
-
-    usuario.password = await bcrypt.hash(passwordNueva, 12);
-    await usuario.save();
-
-    return res.status(200).json({
-      mensaje: "Contraseña actualizada correctamente"
-    });
-
-  } catch (error) {
-    console.error("Error al cambiar contraseña:", error);
-    return res.status(500).json({
-      mensaje: "Error al cambiar la contraseña"
-    });
+// POST /api/usuarios/:id/restablecer-password -> { passwordTemporal } (se muestra una sola vez)
+export async function restablecerPassword(req, res) {
+  if (req.params.id === req.usuario.id) {
+    throw new ErrorHttp(400, "Para cambiar tu propia contraseña usa la opción de Mi perfil");
   }
-};
+  const usuario = await buscarUsuario(req.params.id);
 
-// Eliminar la propia cuenta
-export const eliminarMiCuenta = async (req, res) => {
-  try {
-    const { password } = req.body;
+  const passwordTemporal = generarPasswordTemporal();
+  usuario.password = await hashearPassword(passwordTemporal);
+  usuario.passwordRestablecidaEn = new Date();   // cierra las sesiones que tuviera abiertas
+  await usuario.save();
+  res.json({ mensaje: "Contraseña restablecida correctamente", passwordTemporal });
+}
 
-    if (!password) {
-      return res.status(400).json({
-        mensaje: "Debes ingresar tu contraseña para eliminar la cuenta"
-      });
-    }
-
-    const usuario = await Usuario.findById(req.usuario.id)
-      .select("+password");
-
-    if (!usuario) {
-      return res.status(404).json({
-        mensaje: "Usuario no encontrado"
-      });
-    }
-
-    const passwordCorrecta = await bcrypt.compare(
-      password,
-      usuario.password
-    );
-
-    if (!passwordCorrecta) {
-      return res.status(401).json({
-        mensaje: "La contraseña es incorrecta"
-      });
-    }
-
-    if (usuario.fotoPerfil) {
-      await borrarImagen(usuario.fotoPerfil);
-    }
-
-    await usuario.deleteOne();
-
-    return res.status(200).json({
-      mensaje: "Tu cuenta fue eliminada correctamente"
-    });
-
-  } catch (error) {
-    console.error("Error al eliminar cuenta:", error);
-    return res.status(500).json({
-      mensaje: "Error al eliminar la cuenta"
-    });
+// DELETE /api/usuarios/:id
+export async function eliminarUsuario(req, res) {
+  if (req.params.id === req.usuario.id) {
+    throw new ErrorHttp(400, "Para eliminar tu propia cuenta usa la opción de Mi perfil");
   }
-};
+  const usuario = await buscarUsuario(req.params.id);
+  await exigirOtroAdministrador(usuario);
 
-// Cambiar el rol de otro usuario
-export const cambiarRol = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { rol } = req.body;
-
-    if (!ROLES.includes(rol)) {
-      return res.status(400).json({
-        mensaje: "El rol indicado no es válido"
-      });
-    }
-
-    if (id === req.usuario.id) {
-      return res.status(400).json({
-        mensaje: "No puedes cambiar tu propio rol"
-      });
-    }
-
-    const usuario = await Usuario.findById(id);
-
-    if (!usuario) {
-      return res.status(404).json({
-        mensaje: "Usuario no encontrado"
-      });
-    }
-
-    usuario.rol = rol;
-    await usuario.save();
-
-    return res.status(200).json({
-      mensaje: "Rol actualizado correctamente",
-      usuario: {
-        id: usuario._id,
-        nombre: usuario.nombre,
-        correo: usuario.correo,
-        rol: usuario.rol
-      }
-    });
-
-  } catch (error) {
-    console.error("Error al cambiar rol:", error);
-    return res.status(500).json({
-      mensaje: "Error al cambiar el rol"
-    });
-  }
-};
-
-// Restablecer contraseña de otro usuario
-export const restablecerPassword = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    if (id === req.usuario.id) {
-      return res.status(400).json({
-        mensaje: "Utiliza la opción de cambiar tu propia contraseña"
-      });
-    }
-
-    const usuario = await Usuario.findById(id);
-
-    if (!usuario) {
-      return res.status(404).json({
-        mensaje: "Usuario no encontrado"
-      });
-    }
-
-    const passwordTemporal = crypto.randomBytes(12).toString("base64url");
-
-    usuario.password = await bcrypt.hash(passwordTemporal, 12);
-    await usuario.save();
-
-    return res.status(200).json({
-      mensaje: "Contraseña restablecida correctamente",
-      passwordTemporal
-    });
-
-  } catch (error) {
-    console.error("Error al restablecer contraseña:", error);
-    return res.status(500).json({
-      mensaje: "Error al restablecer la contraseña"
-    });
-  }
-};
-
-// Eliminar otro usuario
-export const eliminarUsuario = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    if (id === req.usuario.id) {
-      return res.status(400).json({
-        mensaje: "Para eliminar tu cuenta utiliza la opción de perfil propio"
-      });
-    }
-
-    const usuario = await Usuario.findById(id);
-
-    if (!usuario) {
-      return res.status(404).json({
-        mensaje: "Usuario no encontrado"
-      });
-    }
-
-    if (usuario.fotoPerfil) {
-      await borrarImagen(usuario.fotoPerfil);
-    }
-
-    await usuario.deleteOne();
-
-    return res.status(200).json({
-      mensaje: "Usuario eliminado correctamente"
-    });
-
-  } catch (error) {
-    console.error("Error al eliminar usuario:", error);
-    return res.status(500).json({
-      mensaje: "Error al eliminar el usuario"
-    });
-  }
-};
+  await usuario.deleteOne();
+  await borrarFotoSiNadieLaUsa(usuario.fotoPerfil, usuario._id);
+  res.json({ mensaje: "Usuario eliminado correctamente" });
+}

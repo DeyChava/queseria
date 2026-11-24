@@ -1,38 +1,44 @@
 import mongoose from "mongoose";
 
 const productoSchema = new mongoose.Schema({
-  // --- Que es ---
-  nombre:      { type: String, required: true, trim: true },
-  descripcion: { type: String, default: "", trim: true },
-  codigo:      { type: String, default: "", trim: true },
+
+  nombre:      { type: String, required: true, trim: true, maxlength: 120 },
+  descripcion: { type: String, default: "", trim: true, maxlength: 500 },
+  codigo:      { type: String, default: "", trim: true, uppercase: true, maxlength: 40 },   // SKU: lo escribe el admin; único entre productos activos
   categoria:   { type: String, default: "Sin categoria", trim: true },
   proveedor:   { type: String, default: "", trim: true },
 
-  // --- Como se vende ---
+  // --- Cómo se vende ---
   unidad: { type: String, default: "unidades" },   // "unidades" | "kg" | "trenzas"
 
-  // --- Plata: colones enteros ---
-  precioCompra: { type: Number, required: true, min: 0 },
-  precioVenta:  { type: Number, required: true, min: 0 },
+  // --- Plata: colones ---
+  precioCompra: { type: Number, required: true, min: 0 },   // costo
+  precioVenta:  { type: Number, required: true, min: 0 },   // sin IVA
 
-  // --- Existencias: admiten decimales (12.5 kg) ---
+  // --- Existencias: admiten decimales (12.5 kg). Solo cambian con movimientos de stock ---
   stock:       { type: Number, default: 0, min: 0 },
   stockMinimo: { type: Number, default: 3, min: 0 },
 
   // --- Fechas propias del producto ---
-  fechaCompra: { type: Date },                     // ultima vez que se compro
-  diasVida:    { type: Number, default: 0, min: 0 }, // dura cuantos dias
+  fechaCompra: { type: Date },
+  diasVida:    { type: Number, default: 0, min: 0 },
 
   // --- Otros ---
   imagen:         { type: String,  default: "" },
-  activo:         { type: Boolean, default: true },
+  activo:         { type: Boolean, default: true },   // false = eliminado (se conserva para el historial de ventas)
   creadoPor:      { type: String,  default: "" },
   actualizadoPor: { type: String,  default: "" },
 }, {
-  timestamps: true,               // agrega createdAt y updatedAt solo
-  toJSON:   { virtuals: true },   // que los calculados salgan en la respuesta
+  timestamps: true,
+  toJSON:   { virtuals: true },
   toObject: { virtuals: true },
 });
+
+// El código no se puede repetir entre productos activos (los sin código no cuentan)
+productoSchema.index(
+  { codigo: 1 },
+  { unique: true, partialFilterExpression: { activo: true, codigo: { $gt: "" } } }
+);
 
 productoSchema.virtual("gananciaUnitaria").get(function () {
   return this.precioVenta - this.precioCompra;
@@ -58,6 +64,5 @@ productoSchema.virtual("gananciaPotencial").get(function () {
 productoSchema.virtual("bajoStock").get(function () {
   return this.stock <= this.stockMinimo;
 });
-
 
 export default mongoose.model("Producto", productoSchema);
