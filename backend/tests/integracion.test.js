@@ -24,7 +24,7 @@ before(async () => {
   if (omitir) return;
   ({ default: mongoose } = await import("mongoose"));
   await mongoose.connect(URI);
-  await mongoose.connection.dropDatabase();
+  for (const c of await mongoose.connection.db.listCollections().toArray()) await mongoose.connection.db.dropCollection(c.name);
   const { default: app } = await import("../app.js");
   await Promise.all(Object.values(mongoose.models).map((m) => m.init()));
   servidor = app.listen(0);
@@ -32,7 +32,7 @@ before(async () => {
 });
 after(async () => {
   if (omitir) return;
-  servidor.close();
+  servidor?.close();
   await mongoose.disconnect();
 });
 
