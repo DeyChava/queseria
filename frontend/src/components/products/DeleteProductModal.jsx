@@ -19,12 +19,12 @@ export default function DeleteProductModal({ product, onClose }) {
   return (
     <Modal title="Eliminar Producto" onClose={onClose} danger>
       <p className="mb-4 text-sm text-apagado">
-        Vas a eliminar <strong className="text-titulo">{product.nombre}</strong>{product.codigo ? ` (${product.codigo})` : ''} de la base de datos, junto con su fotografía. Esta acción no se puede deshacer.
+        Vas a eliminar <strong className="text-titulo">{product.nombre}</strong>{product.codigo ? ` (${product.codigo})` : ''} de la lista de productos. Dejará de aparecer en el catálogo, el inventario y el punto de venta, pero sus ventas y movimientos de inventario se conservan en los reportes.
       </p>
       <p role="alert" className="error-texto">{error}</p>
       <div className="flex justify-end gap-2 pt-2">
         <button type="button" className="boton-suave" onClick={onClose}>Cancelar</button>
-        <button type="button" className="boton-oro !bg-peligro !text-white" onClick={confirmar} disabled={enviando}>{enviando ? 'Eliminando…' : 'Eliminar definitivamente'}</button>
+        <button type="button" className="boton-oro !bg-peligro !text-white" onClick={confirmar} disabled={enviando}>{enviando ? 'Eliminando…' : 'Eliminar producto'}</button>
       </div>
     </Modal>
   )

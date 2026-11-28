@@ -7,6 +7,7 @@ const lineaSchema = new mongoose.Schema({
   nombre:         { type: String, required: true },
   codigo:         { type: String, default: "" },
   unidad:         { type: String, default: "unidades" },
+  aplicaIva:      { type: Boolean, default: true },  // si el producto llevaba IVA al venderse
   cantidad:       { type: Number, required: true, min: 0.001 },
   precioUnitario: { type: Number, required: true, min: 0 },   // precio de venta sin IVA
   costoUnitario:  { type: Number, required: true, min: 0 },   // precio de compra

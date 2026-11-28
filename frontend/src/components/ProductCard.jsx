@@ -38,6 +38,7 @@ export default function ProductCard({ product: p }) {
             {venc && <span className={`block font-mono text-[10px] uppercase ${venc.estado === 'vencido' ? 'text-peligro' : venc.estado === 'pronto' ? 'text-oro' : 'text-tenue'}`}>{venc.estado === 'vencido' ? 'VENCIDO' : 'VENCE'}: {fechaCorta(venc.fecha)}</span>}
             <span className="font-mono text-xl font-bold text-oro-claro">{crc(p.precioVenta)}</span>
             <span className="ml-1 font-mono text-[10px] uppercase text-tenue">/ {unidadCorta(p.unidad)}</span>
+            <span className="ml-1 font-mono text-[10px] uppercase text-tenue" data-testid="etiqueta-iva">{p.aplicaIva === false ? "· sin IVA" : "+ IVA"}</span>
           </div>
           <button type="button" className="boton-oro" onClick={() => agregar(p)} disabled={p.stock <= 0}>
             {p.stock <= 0 ? 'Agotado' : <><Icon name="mas" size={14} />Agregar</>}

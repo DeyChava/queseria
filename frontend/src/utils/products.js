@@ -16,7 +16,7 @@ export function urlImagen(imagen, ancho = 640) {
 
 export const FORMULARIO_VACIO = {
   nombre: '', descripcion: '', codigo: '', categoria: '', proveedor: '', unidad: 'unidades',
-  precioCompra: '', precioVenta: '', stock: '', stockMinimo: '3', fechaCompra: '', diasVida: '',
+  precioCompra: '', precioVenta: '', aplicaIva: true, stock: '', stockMinimo: '3', fechaCompra: '', diasVida: '',
 }
 
 // Producto del backend -> valores del formulario (para editar)
@@ -24,6 +24,7 @@ export const aFormulario = (p) => ({
   nombre: p.nombre || '', descripcion: p.descripcion || '', codigo: p.codigo || '',
   categoria: p.categoria || '', proveedor: p.proveedor || '', unidad: p.unidad || 'unidades',
   precioCompra: String(p.precioCompra ?? ''), precioVenta: String(p.precioVenta ?? ''),
+  aplicaIva: p.aplicaIva !== false, 
   stock: String(p.stock ?? ''), stockMinimo: String(p.stockMinimo ?? 3),
   fechaCompra: p.fechaCompra ? new Date(p.fechaCompra).toISOString().slice(0, 10) : '',
   diasVida: p.diasVida ? String(p.diasVida) : '',
@@ -59,6 +60,7 @@ export function aPayload(f, imagenNueva = '', incluirStock = true) {
     unidad: f.unidad,
     precioCompra: Number(f.precioCompra),
     precioVenta: Number(f.precioVenta),
+    aplicaIva: !!f.aplicaIva,
     stock: f.stock === '' ? 0 : redondear(Number(f.stock)),
     stockMinimo: f.stockMinimo === '' ? 3 : Number(f.stockMinimo),
     fechaCompra: f.fechaCompra || null,
@@ -84,8 +86,10 @@ export function vencimiento(p) {
   return { fecha, dias, estado: dias < 0 ? 'vencido' : dias <= DIAS_AVISO_VENCIMIENTO ? 'pronto' : 'ok' }
 }
 
-// Paso de los botones +/- en el ticket: los productos por kilo suben de a 0.5
-export const pasoDe = (p) => (p.unidad === 'kg' ? 0.5 : 1)
+// Paso de los botones +/- en el ticket: kg y litros suben de a 0.5; gramos y mililitros de a 50; el resto de a 1
+export const pasoDe = (p) => (p.unidad === 'kg' || p.unidad === 'L' ? 0.5 : p.unidad === 'g' || p.unidad === 'ml' ? 50 : 1)
+// ¿Este producto lleva IVA? Los antiguos (sin el campo aplicaIva) sí
+export const llevaIva = (p) => p?.aplicaIva !== false
 
 // Categorías que existen en los datos, sin repetir y en orden alfabético
 export const categoriasPresentes = (productos) =>

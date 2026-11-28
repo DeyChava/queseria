@@ -44,7 +44,7 @@ export default function Ticket() {
               <div key={linea._id} className="flex items-center justify-between gap-2 border-t border-linea py-2.5 first:border-t-0">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-bold text-titulo">{p.nombre}</p>
-                  <span className="font-mono text-[10px] text-oro-claro">{crc(p.precioVenta)} c/u</span>
+                  <span className="font-mono text-[10px] text-oro-claro">{crc(p.precioVenta)} c/u{p.aplicaIva === false ? ' · sin IVA' : ''}</span>
                 </div>
                 <div className="flex items-center gap-2 font-mono">
                   <button type="button" className="boton-mini" onClick={() => cambiar(p._id, -1)} aria-label={`Quitar de ${p.nombre}`}><Icon name="menos" size={12} /></button>

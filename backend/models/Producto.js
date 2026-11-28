@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import { LISTA_UNIDADES } from "../config/constantes.js";
 
 const productoSchema = new mongoose.Schema({
 
@@ -9,11 +9,19 @@ const productoSchema = new mongoose.Schema({
   proveedor:   { type: String, default: "", trim: true },
 
   // --- Cómo se vende ---
-  unidad: { type: String, default: "unidades" },   // "unidades" | "kg" | "trenzas"
+  unidad: {
+    type: String, default: "unidades", trim: true, maxlength: 30,
+   // Solo se exige en productos NUEVOS. Los antiguos (con otra unidad) siguen editándose; al editar, el controlador
+   // acepta la lista oficial o la unidad que el producto ya tenía.
+    validate: {
+      validator(valor) { return !this.isNew || LISTA_UNIDADES.includes(valor); },
+     message: "La unidad no es válida",    },
+  },   // "unidades" | "kg" | "trenzas"
 
   // --- Plata: colones ---
   precioCompra: { type: Number, required: true, min: 0 },   // costo
   precioVenta:  { type: Number, required: true, min: 0 },   // sin IVA
+  aplicaIva:    { type: Boolean, default: true },    // false = este producto no lleva IVA
 
   // --- Existencias: admiten decimales (12.5 kg). Solo cambian con movimientos de stock ---
   stock:       { type: Number, default: 0, min: 0 },

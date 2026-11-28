@@ -1,5 +1,6 @@
 import { Router } from "express";
 import authRoutes from "./auth.js";
+import categoriasRoutes from "./categorias.js";
 import imagenesRoutes from "./imagenes.js";
 import productosRoutes from "./productos.js";
 import reportesRoutes from "./reportes.js";
@@ -13,6 +14,7 @@ router.get("/ping", (req, res) => res.json({ mensaje: "El backend de la queserí
 router.use("/auth", authRoutes);
 router.use("/usuarios", usuariosRoutes);
 router.use("/productos", productosRoutes);
+router.use("/categorias", categoriasRoutes);
 router.use("/imagenes", imagenesRoutes);
 router.use("/ventas", ventasRoutes);
 router.use("/reportes", reportesRoutes);

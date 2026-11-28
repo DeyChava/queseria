@@ -3,7 +3,10 @@ import { api } from './api'
 // Productos e imágenes del backend (backend/routes/productos.js e imagenes.js).
 // Los campos conservan exactamente los nombres del modelo Producto.
 
-// GET /api/productos -> lista de productos activos, ordenados por nombre
+// GET /api/categorias -> ["Lácteos", "Quesos", ...]  ·  POST /api/categorias { nombre } -> { nombre } (solo administrador)
+export const getCategories = async () => (await api.get('/categorias')).data
+export const createCategory = async (nombre) => (await api.post('/categorias', { nombre })).data.nombre
+
 export async function getProducts() {
   const { data } = await api.get('/productos')
   return data

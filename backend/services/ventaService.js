@@ -5,6 +5,7 @@ import MovimientoStock from "../models/MovimientoStock.js";
 import Producto from "../models/Producto.js";
 import Venta from "../models/venta.js";
 import { ErrorHttp } from "../utils/errores.js";
+import { exigirCantidadAdmitida } from "../utils/unidades.js";
 import { leerNumero, redondear } from "../utils/numeros.js";
 import { modificarStock, revertirStock } from "./stockService.js";
 
@@ -41,19 +42,24 @@ export async function registrarVenta({ items, recibido, usuario }) {
 
   // --- Cálculo con los datos reales del producto ---
   let sumaVenta = 0;
+  let sumaGravada = 0;   // lo vendido en productos que SÍ llevan IVA
   let sumaCosto = 0;
   const lineas = productos.map((producto) => {
     const cantidad = cantidades.get(String(producto._id));
+    exigirCantidadAdmitida(producto.unidad, cantidad, producto.nombre);
     if (producto.stock < cantidad) {
       throw new ErrorHttp(409, `Inventario insuficiente de ${producto.nombre}. Disponible: ${producto.stock} ${producto.unidad}`);
     }
+    const aplicaIva = producto.aplicaIva !== false;   // los productos antiguos (sin el campo) llevan IVA
     sumaVenta += producto.precioVenta * cantidad;
     sumaCosto += producto.precioCompra * cantidad;
+    if (aplicaIva) sumaGravada += producto.precioVenta * cantidad;
     return {
       producto: producto._id,
       nombre: producto.nombre,
       codigo: producto.codigo,
       unidad: producto.unidad,
+      aplicaIva,
       cantidad,
       precioUnitario: producto.precioVenta,
       costoUnitario: producto.precioCompra,
@@ -62,9 +68,10 @@ export async function registrarVenta({ items, recibido, usuario }) {
     };
   });
 
-  // Mismo cálculo que el punto de venta: se redondea una vez a colones enteros
+  // Mismo cálculo que el punto de venta: se redondea a colones enteros. El IVA solo se cobra sobre los productos
+  // que lo llevan; los que no, se suman al subtotal pero no pagan impuesto.
   const subtotal = redondear(sumaVenta);
-  const iva = redondear(subtotal * IVA);
+  const iva = redondear(redondear(sumaGravada) * IVA);
   const total = subtotal + iva;
   const costoTotal = redondear(sumaCosto);
   if (pagado < total) throw new ErrorHttp(400, "El monto recibido no alcanza");
