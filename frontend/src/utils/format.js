@@ -2,7 +2,10 @@
 export const crc = (n) => '₡' + Math.round(n || 0).toLocaleString('es-CR')
 
 // Cantidades con decimales (12.5 kg) sin ceros de más
-export const cantidad = (n) => Number(Number(n || 0).toFixed(2)).toLocaleString('es-CR')
+export const cantidad = (n) =>
+  Number(Number(n || 0).toFixed(3)).toLocaleString('es-CR', {
+    maximumFractionDigits: 3,
+  })
 
 // Evita errores de coma flotante al sumar y restar decimales (0.1 + 0.2)
 export const redondear = (n) => Math.round(n * 1000) / 1000

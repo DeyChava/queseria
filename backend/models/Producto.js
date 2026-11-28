@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { LISTA_UNIDADES } from "../config/constantes.js";
 
 const productoSchema = new mongoose.Schema({

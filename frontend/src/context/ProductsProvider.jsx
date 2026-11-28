@@ -129,8 +129,8 @@ export default function ProductsProvider({ children }) {
   }, [full, toast])
 
   const valor = useMemo(
-    () => ({ productos, categorias, cargando: cargando || cargandoCaps, error, cargar, guardar, eliminar, ajustar, crearCategoria }),
-+    [productos, categorias, cargando, cargandoCaps, error, cargar, guardar, eliminar, ajustar, crearCategoria],
-  )
+  () => ({ productos, categorias, cargando: cargando || cargandoCaps, error, cargar, guardar, eliminar, ajustar, crearCategoria }),
+  [productos, categorias, cargando, cargandoCaps, error, cargar, guardar, eliminar, ajustar, crearCategoria],
+)
   return <ProductsContext.Provider value={valor}>{children}</ProductsContext.Provider>
 }

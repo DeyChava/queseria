@@ -6,7 +6,27 @@ export const IVA = 0.13 // el punto de venta suma el 13 % sobre el subtotal (el 
 // así que los filtros del catálogo se arman con las categorías que realmente existan en los datos.
 export const CATEGORIAS_SUGERIDAS = ['Quesos', 'Lácteos', 'Repostería', 'Pan', 'Helados', 'Tortillas']
 
-export const UNIDADES = ['unidades', 'kg', 'trenzas'] // las que documenta el modelo Producto
+export const UNIDADES = [
+  'unidades',
+  'kg',
+  'g',
+  'L',
+  'ml',
+  'trenzas',
+]
+
+export const ETIQUETA_UNIDAD = {
+  unidades: 'Unidades',
+  kg: 'Kilogramos (kg)',
+  g: 'Gramos (g)',
+  L: 'Litros (L)',
+  ml: 'Mililitros (ml)',
+  trenzas: 'Trenzas',
+}
+
+// Unidades que solamente admiten cantidades enteras.
+// kg y L permiten decimales.
+export const UNIDADES_ENTERAS = ['unidades', 'g', 'ml', 'trenzas']
 
 export const ROLES = { admin: 'Administrador', jefe: 'Jefe de inventario', empleado: 'Empleado' }
 

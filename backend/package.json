@@ -4,11 +4,13 @@
   "description": "API de La Quesería: usuarios, productos, inventario, ventas y reportes mensuales",
   "main": "server.js",
   "scripts": {
-    "dev": "nodemon server.js",
-    "start": "node server.js",
-    "seed:admin": "node seed/crearAdmin.js",
-    "test": "node --test \"tests/*.test.js\""
-  },
+  "dev": "nodemon server.js",
+  "start": "node server.js",
+  "seed:admin": "node seed/crearAdmin.js",
+  "test": "node --test \"tests/*.test.js\"",
+  "revisar:env": "node scripts/revisarEnv.js",
+  "migrar:db": "node scripts/migrarBaseDeDatos.js"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",

@@ -5,8 +5,7 @@ import MovimientoStock from "../models/MovimientoStock.js";
 import Producto from "../models/Producto.js";
 import Venta from "../models/venta.js";
 import { ErrorHttp } from "../utils/errores.js";
-import { exigirCantidadAdmitida } from "../utils/unidades.js";
-import { leerNumero, redondear } from "../utils/numeros.js";
+import { exigirCantidadAdmitida, leerNumero, redondear } from "../utils/numeros.js";
 import { modificarStock, revertirStock } from "./stockService.js";
 
 // Valida las líneas que manda el punto de venta y junta las repetidas: Map(productoId -> cantidad)
