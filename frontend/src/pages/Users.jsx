@@ -12,7 +12,7 @@ import { changeRole, listUsers } from '../services/userService'
 import { ROLES } from '../utils/constants'
 
 
-// Usuarios y roles (solo administrador): cambiar el rol de cada cuenta, restablecer contraseñas y eliminar cuentas.
+// Usuarios y roles (solo administrador): agregar usuarios, cambiar el rol de cada cuenta, restablecer contraseñas y eliminar cuentas.
 // El servidor impide dejar el sistema sin administradores.
 export default function Users() {
   const { usuario } = useAuth()

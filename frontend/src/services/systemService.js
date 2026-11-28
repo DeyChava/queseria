@@ -7,7 +7,7 @@ export async function ping() {
 }
 
 // GET /api/auth/estado -> existe solo si el backend tiene la EXTENSIÓN (login con roles, ventas, reportes).
-//   respuesta 200: { extension: true, hayUsuarios }  ·  404: el backend no la tiene (modo básico)
+//  respuesta 200: { extension: true }  ·  404: el backend no la tiene (modo básico)
 export async function getCapabilities() {
   try {
     const { data } = await api.get('/auth/estado')

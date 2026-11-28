@@ -1,6 +1,8 @@
+
 import mongoose from "mongoose";
 import { baseDeLaUri, baseElegida } from "./baseDeDatos.js";
 import { config } from "./env.js";
+import { baseDeLaUri, baseElegida } from "./baseDeDatos.js";
 
 export async function conectarDB() {
   try {
@@ -15,12 +17,13 @@ export async function conectarDB() {
     process.exit(1);
   }
 
-  // Crea los índices (por ejemplo, el del código único). Si alguno falla solo se avisa:
-  // lo más común es que ya existan productos con códigos repetidos.
+  // Crea los índices.
   await Promise.all(
     Object.values(mongoose.models).map((modelo) =>
       modelo.init().catch((error) =>
-        console.warn(`Aviso: no se pudo crear un índice de ${modelo.modelName}: ${error.message}`)
+        console.warn(
+          `Aviso: no se pudo crear un índice de ${modelo.modelName}: ${error.message}`
+        )
       )
     )
   );
