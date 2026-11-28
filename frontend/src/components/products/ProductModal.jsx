@@ -58,12 +58,23 @@ export default function ProductModal({ product, onClose }) {
 
   const enviar = async (e) => {
     e.preventDefault()
-   setEnviando(true); setError('')
-   let formulario = f
-   if (creandoCat) { // si escribió una categoría nueva y no la guardó aparte, se guarda junto con el producto
-    formulario = { ...f, categoria: r.nombre }
-   }
-   const r = await guardar(formulario, archivo, product)
+    setEnviando(true)
+    setError('')
+
+    let formulario = f
+     if (creandoCat) { // si escribió una categoría nueva y no la guardó aparte, se guarda junto con el producto
+      const resCat = await crearCategoria(nombreCat)
+      if (resCat.error) {
+        setEnviando(false)
+        setErrorCat(resCat.error)
+        return
+      }
+      formulario = { ...f, categoria: resCat.nombre }
+      setCreandoCat(false)
+      setNombreCat('')
+    }
+
+    const r = await guardar(formulario, archivo, product)
     setEnviando(false)
     if (r.error) return setError(r.error)
     onClose()
@@ -85,13 +96,13 @@ export default function ProductModal({ product, onClose }) {
       <form onSubmit={enviar} className="space-y-3">
         <Field id="p-nombre" label="Nombre del Producto" value={f.nombre} onChange={cambiar('nombre')} required maxLength={80} placeholder="Ej: Queso Parmesano Añejo" />
        <div className="grid gap-3 sm:grid-cols-2">
-          <Field id="p-codigo" label="Código SKU" value={f.codigo} onChange={cambiar('codigo')} maxLength={20} placeholder="QS-9901" autoComplete="off" />
+          
           <div>
-            <Field id="p-categoria" label="Categoría">
+            <Field id="p-categoria" label="Categoría" >
               <select id="p-categoria" className="campo" value={creandoCat ? NUEVA : f.categoria} onChange={elegirCategoria}>
                 <option value="">Sin categoría</option>
                 {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
-                <option value={NUEVA}>➕ Agregar nueva categoría</option>
+                <option value={NUEVA}> + Agregar nueva categoría</option>
               </select>
             </Field>
             {creandoCat && (
@@ -110,7 +121,7 @@ export default function ProductModal({ product, onClose }) {
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <Field id="p-unidad" label="Se vende por" hint={editando ? 'No se puede cambiar si ya tiene existencias o movimientos' : undefined}>
-            <select id="p-unidad" className="campo" value={f.unidad} onChange={cambiar('unidad')}>{unidades.map((u) => <option key={u} value={u}>{ETIQUETA_UNIDAD[u] ?? u}</option>)}</select>
+          <select id="p-unidad" className="campo" value={f.unidad} onChange={cambiar('unidad')} disabled={editando && product.stock > 0}>{unidades.map((u) => <option key={u} value={u}>{ETIQUETA_UNIDAD[u] ?? u}</option>)}</select>
           </Field>
           <Field id="p-compra" label="Precio de Compra (₡)" type="number" min="0" step="1" value={f.precioCompra} onChange={cambiar('precioCompra')} required placeholder="3000" />
           <Field id="p-venta" label="Precio de Venta (₡)" type="number" min="0" step="1" value={f.precioVenta} onChange={cambiar('precioVenta')} required placeholder="4500" hint={margen !== null ? `Margen de ganancia: ${margen} %` : undefined} />

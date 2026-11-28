@@ -18,7 +18,11 @@ export function modificarStock(productoId, delta) {
 
 // Deshace un cambio de stock ya aplicado (cuando algo falla a mitad de una operación)
 export function revertirStock(productoId, delta) {
-  return Producto.updateOne({ _id: productoId }, { $inc: { stock: -delta } });
+  return Producto.updateOne(
+    { _id: productoId },
+    [{ $set: { stock: { $round: [{ $add: ["$stock", -delta] }, DECIMALES_STOCK] } } }],
+    { updatePipeline: true }
+  );
 }
 
 // Movimiento manual (entrada, salida o ajuste) + registro en el historial

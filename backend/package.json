@@ -7,7 +7,9 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "seed:admin": "node seed/crearAdmin.js",
-    "test": "node --test \"tests/*.test.js\""
+    "test": "node --test \"tests/*.test.js\"",
+    "revisar:env": "node scripts/revisarEnv.js",
+    "migrar:db": "node scripts/migrarBaseDeDatos.js"
   },
   "keywords": [],
   "author": "",

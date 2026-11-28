@@ -54,6 +54,14 @@ export async function resolverCategoria(valor) {
   if (clave === claveDeTexto(CATEGORIA_POR_DEFECTO)) return CATEGORIA_POR_DEFECTO;
   const existente = (await listarCategorias()).find((c) => claveDeTexto(c) === clave);
   if (existente) return existente;
-  await Categoria.updateOne({ clave }, { $setOnInsert: { nombre, clave } }, { upsert: true });
+  try {
+    await Categoria.updateOne({ clave }, { $setOnInsert: { nombre, clave } }, { upsert: true });
+  } catch (error) {
+    if (error.code === 11000) {
+      const registrada = await Categoria.findOne({ clave }).lean();
+      if (registrada) return registrada.nombre;
+    }
+    throw error;
+  }
   return nombre;
 }

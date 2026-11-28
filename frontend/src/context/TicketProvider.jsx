@@ -14,8 +14,12 @@ export default function TicketProvider({ children }) {
 
   const agregar = useCallback((producto) => {
     const linea = ticket.find((l) => l._id === producto._id)
-    const qty = redondear((linea ? linea.qty : 0) + pasoDe(producto))
-    if (qty > producto.stock) return toast(producto.stock <= 0 ? 'Producto agotado en stock' : 'No hay suficiente stock disponible', 'error')
+    const actual = linea ? linea.qty : 0
+    if (producto.stock <= 0 || actual >= producto.stock) {
+      return toast(producto.stock <= 0 ? 'Producto agotado en stock' : 'No hay suficiente stock disponible', 'error')
+    }
+  
+    const qty = Math.min(redondear(actual + pasoDe(producto)), producto.stock)
     setTicket(linea ? ticket.map((l) => (l._id === producto._id ? { ...l, qty } : l)) : [...ticket, { _id: producto._id, qty }])
     toast(`Añadido: ${producto.nombre}`)
   }, [ticket, toast])

@@ -29,9 +29,11 @@ export default function ProductsProvider({ children }) {
     setError('')
     try {
       setProductos(await getProducts())
-     getCategories().then(setCategoriasApi).catch(() => {}) // si falla, el formulario usa las de los productos
+     getCategories().then(setCategoriasApi).catch(() => {
+        toast('No se pudieron cargar las categorías registradas; se usan las del catálogo.', 'error')
+      })
     } catch (err) { setError(err.message) } finally { setCargando(false) }
-  }, [])
+  }, [toast])
 
   useEffect(() => { if (listo) cargarProductos(); else setProductos([]) }, [listo, cargarProductos])
 
@@ -130,7 +132,7 @@ export default function ProductsProvider({ children }) {
 
   const valor = useMemo(
     () => ({ productos, categorias, cargando: cargando || cargandoCaps, error, cargar, guardar, eliminar, ajustar, crearCategoria }),
-+    [productos, categorias, cargando, cargandoCaps, error, cargar, guardar, eliminar, ajustar, crearCategoria],
+    [productos, categorias, cargando, cargandoCaps, error, cargar, guardar, eliminar, ajustar, crearCategoria],
   )
   return <ProductsContext.Provider value={valor}>{children}</ProductsContext.Provider>
 }

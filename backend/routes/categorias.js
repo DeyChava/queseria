@@ -1,3 +1,4 @@
+// NUEVA UBICACIÓN: backend/routes/categorias.js
 import { Router } from "express";
 import { crear, listar } from "../controllers/categoriasController.js";
 import { ROL } from "../config/roles.js";

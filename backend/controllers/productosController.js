@@ -1,24 +1,53 @@
-
+import { LISTA_UNIDADES } from "../config/constantes.js";
 import { borrarImagen } from "../config/cloudinary.js";
 import MovimientoStock from "../models/MovimientoStock.js";
 import Producto from "../models/Producto.js";
+import { resolverCategoria } from "../services/categoriaService.js";
 import { registrarMovimiento } from "../services/stockService.js";
 import { ErrorHttp } from "../utils/errores.js";
 import { leerNumero, redondear } from "../utils/numeros.js";
-import { seleccionar } from "../utils/validaciones.js";
+import { exigirCantidadAdmitida } from "../utils/unidades.js";
+import { seleccionar, validarNombreImagen } from "../utils/validaciones.js";
 
 // Campos que el cliente puede mandar. El stock NO está: solo cambia con movimientos (POST /:id/stock).
 const CAMPOS_EDITABLES = [
   "nombre", "descripcion", "codigo", "categoria", "proveedor", "unidad",
-  "precioCompra", "precioVenta", "stockMinimo", "fechaCompra", "diasVida", "imagen",
+  "precioCompra", "precioVenta", "aplicaIva", "stockMinimo", "fechaCompra", "diasVida", "imagen",
 ];
 
 const escaparRegex = (texto) => texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-function validarDatos(datos, { parcial }) {
+function validarDatos(datos, { parcial, actual = null }) {
   if (!parcial || datos.nombre !== undefined) {
-    if (typeof datos.nombre !== "string" || !datos.nombre.trim()) throw new ErrorHttp(400, "El nombre es obligatorio");
+    if (typeof datos.nombre !== "string" || !datos.nombre.trim() || datos.nombre.trim().length > 120) {
+      throw new ErrorHttp(400, "El nombre es obligatorio (máximo 120 caracteres)");
+    }
   }
+
+  for (const [campo, max] of [["descripcion", 500], ["codigo", 40], ["categoria", 60], ["proveedor", 100]]) {
+    if (datos[campo] === undefined) continue;
+    if (typeof datos[campo] !== "string") throw new ErrorHttp(400, `El campo ${campo} debe ser un texto`);
+    if (datos[campo].trim().length > max) throw new ErrorHttp(400, `El campo ${campo} admite máximo ${max} caracteres`);
+  }
+
+  if (datos.unidad !== undefined) {
+    if (typeof datos.unidad !== "string") throw new ErrorHttp(400, "La unidad debe ser un texto");
+    const unidad = datos.unidad.trim();
+    if (!LISTA_UNIDADES.includes(unidad) && unidad !== actual?.unidad) {
+      throw new ErrorHttp(400, `La unidad no es válida. Usa una de estas: ${LISTA_UNIDADES.join(", ")}`);
+    }
+    datos.unidad = unidad;
+  }
+
+  if (datos.aplicaIva !== undefined && typeof datos.aplicaIva !== "boolean") {
+    throw new ErrorHttp(400, "El campo aplicaIva debe ser verdadero o falso");
+  }
+
+  if (datos.imagen !== undefined) {
+    datos.imagen = validarNombreImagen(datos.imagen);
+  }
+
+
   for (const campo of ["precioCompra", "precioVenta"]) {
     if (parcial && datos[campo] === undefined) continue;
     const valor = leerNumero(datos[campo]);
@@ -47,11 +76,11 @@ export async function listarProductos(req, res) {
   const { buscar, categoria, bajoStock } = req.query;
   const filtro = { activo: true };
 
-  if (buscar?.trim()) {
+  if (typeof buscar === "string" && buscar.trim()) {
     const regex = { $regex: escaparRegex(buscar.trim()), $options: "i" };
     filtro.$or = [{ nombre: regex }, { codigo: regex }, { descripcion: regex }, { categoria: regex }];
   }
-  if (categoria?.trim()) {
+  if (typeof categoria === "string" && categoria.trim()) {
     filtro.categoria = { $regex: `^${escaparRegex(categoria.trim())}$`, $options: "i" };
   }
   if (bajoStock === "true") filtro.$expr = { $lte: ["$stock", "$stockMinimo"] };
@@ -69,6 +98,7 @@ export async function obtenerProducto(req, res) {
 export async function crearProducto(req, res) {
   const datos = seleccionar(req.body, CAMPOS_EDITABLES);
   validarDatos(datos, { parcial: false });
+  datos.categoria = await resolverCategoria(datos.categoria);
   await exigirCodigoLibre(datos.codigo);
 
   const producto = await Producto.create({
@@ -84,14 +114,23 @@ export async function crearProducto(req, res) {
 export async function editarProducto(req, res) {
   const producto = await buscarProducto(req.params.id);
   const datos = seleccionar(req.body, CAMPOS_EDITABLES);
-  validarDatos(datos, { parcial: true });
-  if (datos.codigo !== undefined) await exigirCodigoLibre(datos.codigo, producto._id);
+  validarDatos(datos, { parcial: true, actual: producto });
+  if (datos.categoria !== undefined) datos.categoria = await resolverCategoria(datos.categoria);
+
+   if (datos.unidad !== undefined && datos.unidad !== producto.unidad) {
+    if (producto.stock > 0 || (await MovimientoStock.exists({ producto: producto._id }))) {
+      throw new ErrorHttp(409, "No se puede cambiar la unidad de un producto con existencias o movimientos. Crea un producto nuevo con la otra unidad");
+    }
+  }
+
+
 
   const imagenAnterior = producto.imagen;
+  const cambiaImagen = datos.imagen !== undefined && datos.imagen !== imagenAnterior;
   producto.set({ ...datos, actualizadoPor: req.usuario.nombre });
   await producto.save();
 
-  if (datos.imagen && imagenAnterior && datos.imagen !== imagenAnterior) await borrarImagen(imagenAnterior);
+  if (cambiaImagen && imagenAnterior) await borrarImagen(imagenAnterior);
   res.json(producto);
 }
 
@@ -122,6 +161,10 @@ export async function ajustarStock(req, res) {
   if (!["entrada", "salida", "ajuste"].includes(tipo)) throw new ErrorHttp(400, "El tipo de movimiento no es válido");
   if (tipo === "entrada" && delta < 0) throw new ErrorHttp(400, "Una entrada debe sumar existencias");
   if (tipo === "salida" && delta > 0) throw new ErrorHttp(400, "Una salida debe restar existencias");
+     
+    const existente = await buscarProducto(req.params.id);
+    exigirCantidadAdmitida(existente.unidad, delta, existente.nombre);
+
 
   const producto = await registrarMovimiento({
     productoId: req.params.id,

@@ -34,7 +34,17 @@ beforeEach(() => {
     stock[id] = Math.round((stock[id] + delta) * 1000) / 1000;
     return { ...productos[id], stock: stock[id] };
   };
-  Producto.updateOne = async ({ _id }, { $inc }) => { stock[String(_id)] += $inc.stock; };
+
+   Producto.updateOne = async ({ _id }, actualizacion) => {
+    const id = String(_id);
+    if (Array.isArray(actualizacion)) {
+      const delta = actualizacion[0].$set.stock.$round[0].$add[1];
+      stock[id] = Math.round((stock[id] + delta) * 1000) / 1000;
+      return;
+    }
+    stock[id] += actualizacion.$inc.stock;
+  };
+  
   Contador.findOneAndUpdate = async () => ({ valor: 7 });
   Venta.create = async (datos) => {
     if (fallarAlCrearVenta) throw new Error("falló la base");

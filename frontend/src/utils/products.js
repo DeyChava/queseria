@@ -1,4 +1,4 @@
-import { DIAS_AVISO_VENCIMIENTO } from './constants'
+import { DIAS_AVISO_VENCIMIENTO, UNIDADES_ENTERAS } from './constants'
 import { norm, redondear } from './format'
 
 // ---- Adaptadores entre el modelo Producto del backend y la pantalla ----
@@ -43,6 +43,9 @@ export function validarProducto(f, existentes, idActual = null) {
   if (f.stock !== '' && !(Number(f.stock) >= 0)) return 'El stock debe ser 0 o más.'
   if (f.stockMinimo !== '' && !(Number(f.stockMinimo) >= 0)) return 'El stock mínimo debe ser 0 o más.'
   if (f.diasVida !== '' && !(Number(f.diasVida) >= 0)) return 'Los días de vida deben ser 0 o más.'
+  if (f.stock !== '' && UNIDADES_ENTERAS.includes(f.unidad) && !Number.isInteger(Number(f.stock))) {
+    return `El stock de productos por ${f.unidad} debe ser un número entero.`
+  }
   if (codigo && otros.some((p) => (p.codigo || '').toLowerCase() === codigo.toLowerCase())) return `Ya existe un producto con el código ${codigo.toUpperCase()}. Elige otro.`
   if (otros.some((p) => norm(p.nombre) === norm(f.nombre))) return 'Ya existe un producto con ese nombre.'
   return ''
