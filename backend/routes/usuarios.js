@@ -1,7 +1,8 @@
 import { Router } from "express";
 import {
-  actualizarPerfil, cambiarPassword, cambiarRol, eliminarMiCuenta,
-  eliminarUsuario, listarUsuarios, restablecerPassword,
+  actualizarPerfil, cambiarPassword, cambiarRol, crearUsuario, eliminarMiCuenta,
+  eliminarUsuario, listarUsuarios, obtenerCodigosAcceso, restablecerPassword,
+
 } from "../controllers/usuariosController.js";
 import { ROL } from "../config/roles.js";
 import { verificarRol, verificarToken } from "../middlewares/auth.js";
@@ -19,6 +20,8 @@ router.delete("/yo", eliminarMiCuenta);
 
 // Administración de cuentas: solo administrador
 router.get("/", soloAdmin, listarUsuarios);
+router.post("/", soloAdmin, crearUsuario);
+router.get("/codigos-acceso", soloAdmin, obtenerCodigosAcceso);
 router.patch("/:id/rol", soloAdmin, validarId, cambiarRol);
 router.post("/:id/restablecer-password", soloAdmin, validarId, restablecerPassword);
 router.delete("/:id", soloAdmin, validarId, eliminarUsuario);

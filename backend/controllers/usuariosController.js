@@ -1,4 +1,5 @@
 import { borrarImagen } from "../config/cloudinary.js";
+import { config } from "../config/env.js";
 import { ROL, ROLES } from "../config/roles.js";
 import Producto from "../models/Producto.js";
 import Usuario from "../models/Usuario.js";
@@ -7,7 +8,7 @@ import {
   compararPassword, generarPasswordTemporal, hashearPassword,
 } from "../utils/passwords.js";
 import { usuarioPublico } from "../utils/serializadores.js";
-import { limpiarNombre, validarNombreImagen, validarPassword } from "../utils/validaciones.js";
+import { limpiarCorreo, limpiarNombre, validarNombreImagen, validarPassword } from "../utils/validaciones.js";
 
 async function buscarUsuario(id, conPassword = false) {
   const consulta = Usuario.findById(id);
@@ -37,6 +38,28 @@ async function exigirOtroAdministrador(usuario) {
 export async function listarUsuarios(req, res) {
   const usuarios = await Usuario.find().sort({ createdAt: -1 });
   res.json(usuarios.map(usuarioPublico));
+}
+
+// POST /api/usuarios { nombre, email, password, rol }   (solo administrador)
+// El administrador crea la cuenta directamente, con cualquiera de los tres roles. La contraseña se guarda cifrada (bcrypt).
+export async function crearUsuario(req, res) {
+  const nombre = limpiarNombre(req.body.nombre);
+  const correo = limpiarCorreo(req.body.email ?? req.body.correo);
+  const password = validarPassword(req.body.password, "La contraseña", { correo, nombre });
+  const rol = req.body.rol ?? ROL.EMPLEADO;
+  if (typeof rol !== "string" || !ROLES.includes(rol)) throw new ErrorHttp(400, "El rol indicado no es válido");
+  if (await Usuario.exists({ correo })) throw new ErrorHttp(409, "Este correo ya está registrado");
+
+  const usuario = await Usuario.create({ nombre, correo, password: await hashearPassword(password), rol });
+  res.status(201).json({ usuario: usuarioPublico(usuario) });
+}
+
+// GET /api/usuarios/codigos-acceso   (solo administrador)
+// Los códigos que se piden en "Crear cuenta". Salen de las variables CODIGO_* del .env del servidor; si alguna no
+// está configurada se devuelve vacía.
+export function obtenerCodigosAcceso(req, res) {
+  const { admin, jefe, empleado } = config.codigosRegistro;
+  res.json({ CODIGO_ADMIN: admin ?? "", CODIGO_JEFE: jefe ?? "", CODIGO_EMPLEADO: empleado ?? "" });
 }
 
 // PATCH /api/usuarios/yo { nombre?, foto? }   (foto = nombre corto de POST /api/imagenes, o "" para quitarla)
