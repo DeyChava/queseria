@@ -25,7 +25,9 @@ function validarDatos(datos, { parcial }) {
     if (!Number.isFinite(valor) || valor < 0) {
       throw new ErrorHttp(400, "El precio de compra y el de venta son obligatorios y deben ser 0 o más");
     }
+
   }
+
 }
 
 async function exigirCodigoLibre(codigo, idActual) {
@@ -85,6 +87,7 @@ export async function editarProducto(req, res) {
   const producto = await buscarProducto(req.params.id);
   const datos = seleccionar(req.body, CAMPOS_EDITABLES);
   validarDatos(datos, { parcial: true });
+  
   if (datos.codigo !== undefined) await exigirCodigoLibre(datos.codigo, producto._id);
 
   const imagenAnterior = producto.imagen;
@@ -123,6 +126,7 @@ export async function ajustarStock(req, res) {
   if (tipo === "entrada" && delta < 0) throw new ErrorHttp(400, "Una entrada debe sumar existencias");
   if (tipo === "salida" && delta > 0) throw new ErrorHttp(400, "Una salida debe restar existencias");
 
+  
   const producto = await registrarMovimiento({
     productoId: req.params.id,
     delta,

@@ -53,10 +53,39 @@ export const VARIABLES_SERVIDOR = [
   "CLOUDINARY_API_SECRET",
 ];
 
+// Un JWT_SECRET es débil si es corto, de ejemplo ("cambiar", "secreto"...) o casi no varía ("aaaa...")
+export function jwtSecretDebil(valor = "") {
+  const texto = valor.trim();
+  return (
+    texto.length < 32 ||
+    new Set(texto).size < 10 ||
+    /^\d+$/.test(texto) ||
+    tieneSecuencia(texto, 8) ||
+    /cambia|ejemplo|secret|clave|password|changeme|tu[-_ ]?secreto/i.test(texto)
+  );
+}
+
+// ¿Hay una racha de "largo" caracteres seguidos tipo 12345678 o abcdefgh (o al revés)?
+function tieneSecuencia(texto, largo) {
+  let subiendo = 1;
+  let bajando = 1;
+  for (let i = 1; i < texto.length; i++) {
+    const diferencia = texto.charCodeAt(i) - texto.charCodeAt(i - 1);
+    subiendo = diferencia === 1 ? subiendo + 1 : 1;
+    bajando = diferencia === -1 ? bajando + 1 : 1;
+    if (subiendo >= largo || bajando >= largo) return true;
+  }
+  return false;
+}
+
 export function validarServidor() {
   exigirVariables(VARIABLES_SERVIDOR);
-  if (config.jwtSecret.length < 32) {
-    console.error("JWT_SECRET es muy corto: usa al menos 32 caracteres aleatorios.");
+  if (!/^mongodb(\+srv):\/\//.test(config.mongoUri.trim())) {
+    console.error("MONGO_URI no es una cadena de conexión válida (debe empezar con mongodb:// o mongodb+srv://).");
+    process.exit(1);
+  }
+  if (jwtSecretDebil(config.jwtSecret)) {
+    console.error("JWT_SECRET es débil: usa al menos 32 caracteres aleatorios. Genera uno con:  npm run revisar:env -- --arreglar");
     process.exit(1);
   }
 }
